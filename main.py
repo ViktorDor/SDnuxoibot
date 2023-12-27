@@ -50,9 +50,7 @@ data = pd.read_csv("Путь")
 NowDR = []
 NowDate = datetime.datetime.now()
 
-#Установка времени. По желанию менять
-Weather_time = "8:00"
-Gift_time = "10:00"
+#Установка времени происходит в низу!
 
 #========================================================= 
 #Обработка команнд
@@ -237,9 +235,10 @@ def cmd():
         else:
             print("Неизвестная комманда!")
          
-#Установка таймеров
-schedule.every().day.at(Weather_time).do(send_weather)
-schedule.every().day.at(Gift_time).do(check)   
+#Установка таймеров и времени 
+#Поменять по своему желанию!
+schedule.every().day.at("8:00").do(send_weather)
+schedule.every().day.at("10:00").do(check)   
 
 #Установка и запуск потоков
 threading_treager = threading.Thread(target=treager)
