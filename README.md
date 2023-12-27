@@ -2,37 +2,37 @@
 
 -=-=-=-=-=-=-=-=-=-=-=-
 
-**Creator:** ViktorGoldFox
+**Создатель:** ViktorGoldFox
 
 -=-=-=-=-=-=-=-=-=-=-=-
 
-SDNuxoiBot is a versatile bot designed for sending birthday greetings and more.
+SDNuxoiBot Бот для поздравления с дней рожения и не только.
+-=-=-=-=-=-=-=-=-=-=-=-
 
-## Functionality:
+## Поддержать автора: https://www.donationalerts.com/r/viktorgoldfox
 
-1. At 8:00 AM (MSK), it provides the current weather update.
-2. At 10:00 AM, it scans the database and sends birthday wishes to celebrants.
+## Функционал:
 
-### Commands:
+1. В 8:00 по МСК выводит погоду
+2. В 10:00 проходит по базе данных и поздравляет именниников
 
-- `*/add`: Add a person to the database (Note: It adds to a text document named "NewData" rather than directly to the working database).
-- `*/weather`: Get the current weather update.
+### Комманды:
 
-### Admin Commands:
+- `*/add`: Добавить человека в базу данных (Добавляет не на прямую в рабочую базу а в текстовый документ "NewData.txt").
+- `*/weather`: Вывести погоду.
 
-- `*/stats`: Retrieve statistics about the bot's performance.
-- `*/logs`: Access bot logs.
-- `*/send_message`: Send a message on behalf of the bot.
+### Админ комманды:
 
-## Importing Modules:
+- `*/stats`: Получить статистику о работе бота.
+- `*/logs`: Получить логи.
+- `*/send_message`: отправить сообщение от имени бота.
 
-Make sure to install the required modules. Refer to the commands listed in `modls.txt` for installation.
+## Импортирование модулей:
+
+Некоторые модули нужно установить. Команнды смотреть в modl.txt
 
 ---
 
-**Note:** Customize the bot's functionalities, commands, and instructions as needed for your specific use case.
+**Пометк:** Настройте функции, команды и инструкции бота в соответствии с вашим конкретным вариантом использования..
 
-Feel free to contribute, report issues, or suggest improvements!
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
+Не стесняйтесь вносить свой вклад, сообщать о проблемах или предлагать улучшения!
