@@ -237,7 +237,7 @@ def cmd():
          
 #Установка таймеров и времени 
 #Поменять по своему желанию!
-schedule.every().day.at("8:00").do(send_weather)
+schedule.every().day.at("08:00").do(send_weather)
 schedule.every().day.at("10:00").do(check)   
 
 #Установка и запуск потоков
