@@ -1,5 +1,5 @@
 pip install pandas
-pip install telebotapi
+pip install pytelegrambotapi
 pip install requests
 pip install pymorphy2
 pip install schedule
