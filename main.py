@@ -30,6 +30,12 @@ import threading
 import requests 
 import sys
 import pymorphy2
+from gigachat import GigaChat
+import openai
+
+#OpenAi
+openai.api_key = "token
+Gigachat_token = 'token'
 
 #Указание сайта погоды (Open wheather)
 #Зайти на сатй openwheather.org и следовать интрукциям
@@ -49,11 +55,44 @@ data = pd.read_csv("Путь")
 #Указание переменных (Не менять!!!)
 NowDR = []
 NowDate = datetime.datetime.now()
+time = NowDate.replace(microsecond=0)
 
 #Установка времени происходит в низу!
 
 #========================================================= 
 #Обработка команнд
+@bot.message_handler(commands=['ask'])
+def ask_gpt(message):
+    argus = message.text.split()
+    if len(argus) < 2:
+        bot.send_message(message.chat.id, "Нужно ввести запрос. Попробуй снова.")
+        return False
+    argus.pop(0)
+    txt = " ".join(argus)
+    completion = openai.ChatCompletion.create(
+  model="gpt-3.5-turbo",
+  messages=[
+    {"role": "user", "content": txt}
+  ]
+)
+    text2 = ("ChatGPT-3.5 - " + str(completion.choices[0].message.content))
+    logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался ChatGPT: ' + txt))
+    bot.send_message(message.chat.id, text2)
+
+@bot.message_handler(commands=['ask_gigachat'])
+def ask_giga_chat(message):
+    argus = message.text.split()
+    if len(argus) < 2:
+        bot.send_message(message.chat.id, "Нужно ввести запрос. Попробуй снова.")
+        return False
+    argus.pop(0)
+    txt = " ".join(argus)
+    with GigaChat(credentials=Gigachat_token, verify_ssl_certs=False) as giga:
+        response = giga.chat(txt)
+    text2 = str("GiGaChat - " + response.choices[0].message.content)
+    logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался GiGaChat: ' + txt))
+    bot.send_message(message.chat.id, text2)
+
 @bot.message_handler(commands=['send_message'])
 def send_message(message):
     argus = message.text.split()
@@ -89,6 +128,27 @@ def appending(message):
 def get_stats(message):
     if (message.from_user.id == admins[0]):
         bot.send_message(message.from_user.id,"Stats: OK")
+
+@bot.message_handler(commands=['logs'])
+def get_stats(message):
+    if (message.from_user.id == admins[0)):
+        with open('logs.txt', 'r+') as log:
+            bot.send_message(message.from_user.id,str(log.read()))
+        log.close
+        
+@bot.message_handler(commands=['logsclear'])
+def get_stats(message):
+    if (message.from_user.id == admins[0)):
+        with open('logs.txt', 'w+') as log:
+            log.write("[*] Logs clear! \n")
+            bot.send_message(message.from_user.id, "Логи очищенны!")
+        log.close
+#Тестовая функция для разработки
+#Для отключения закомментировать!
+@bot.message_handler(commands=['test'])
+def getmessage(message):    
+    if (message.from_user.id == 1746901164):
+        bot.send_message(message.from_user.id, message)
 
 #Тестовая функция для разработки
 #Для отключения закомментировать!
@@ -218,8 +278,9 @@ def save_new(message):
         return False
     
 def logs_save(log_text=''):
+    def logs_save(log_text=''):
     with open('logs.txt', 'a') as log:
-        log.write(str(NowDate) + " - " + log_text + '\n')
+        log.write(str(time) + " - " + log_text + '\n')
     log.close
 
 def cmd():
@@ -252,4 +313,9 @@ threading_cmd.start()
 # check(NowDay=15, NowMonth=11)
 
 #Запуск бота
-bot.polling(non_stop=True, interval=1)
+logs_save(log_text=str('[*] Bot start \n'))
+try:
+    bot.polling(non_stop=True, interval=1)
+except:
+    print("Time out")
+    logs_save(log_text="[*] Time out")
