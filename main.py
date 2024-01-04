@@ -26,28 +26,35 @@ import telebot
 import pandas as pd
 import schedule
 import datetime 
-import threading 
+import threading
+from urllib import request 
 import requests 
 import sys
+import os
 import pymorphy2
 from gigachat import GigaChat
 import openai
 
+version = 'v2.5'
 #OpenAi
-openai.api_key = "token
-Gigachat_token = 'token'
+# openai.api_key = ""
+# Gigachat_token = ''
+AIlimit = 50
+Animspeed = 0.01
 
 #Указание сайта погоды (Open wheather)
-#Зайти на сатй openwheather.org и следовать интрукциям
-url = 'https://openwheather.org'
+#Зайти на сайт https://api.openweathermap.org и следовать интрукциям
+url = ''
 
 #Бот конфиг 
-chatid = 'chat_id' #Поменяйте на id группы
-token = 'token' #Поменяйте на token своего бота
+chatid = '' #Поменяйте на id группы
+token = '' #Поменяйте на token своего бота
+
 bot = telebot.TeleBot(token=token)
 
 #Указание админов
-admins = ["id_user"]
+#Первый админ главный!!!
+admins = []
 
 #Указание пути к DataFrame
 data = pd.read_csv("Путь")
@@ -57,42 +64,144 @@ NowDR = []
 NowDate = datetime.datetime.now()
 time = NowDate.replace(microsecond=0)
 
-#Установка времени происходит в низу!
+#Установка времени. По желанию менять
+Weather_time = "08:00"
+Gift_time = "10:00"
 
 #========================================================= 
 #Обработка команнд
+@bot.message_handler(commands=['help'])
+def get_help(message):
+    bot.send_message(message.chat.id, "/ask - Задать вопрос chatGPT \n /ask_gigachat - Задать вопрос GigaChat \n /add - Добавиться в базу данных \n /weather - Вывести погоду Version: " + version)
+
+#========================================================= 
+#Обработка команнд AI
+@bot.message_handler(commands=['generate'])
+def generate_image(message):
+    try:
+        argus = message.text.split()
+        if len(argus) < 2:
+            bot.send_message(message.chat.id, "Нужно ввести запрос. Попробуй снова.")
+            return False
+        argus.pop(0)
+        txt = " ".join(argus)
+        mess = bot.send_message(message.chat.id, "🕐 Подождите несколько секунд. Ваше изображение обрабатывается...")
+        mess
+        completion = openai.Image.create(
+  model='dall-e-2',
+  prompt=txt,
+  n=1
+)
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕒 Подождите несколько секунд. Ваше изображение обрабатывается.")
+        sleep(0.5)
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕕 Подождите несколько секунд. Ваше изображение обрабатывается..")
+        sleep(0.5)
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕘 Подождите несколько секунд. Ваше изображение обрабатывается...")
+        sleep(0.5)
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="✅Ваше изображение готово:")
+        logs_save(log_text=str(str("@" + message.from_user.username) + ' Сгенерировал изображение: ' + txt))
+        image_url = completion['data'][0]['url']
+        file_name = 'image.png'
+        request.urlretrieve(image_url, file_name)
+        with open("image.png", 'rb') as im:
+            bot.send_photo(message.chat.id, im)
+            im.close()
+        os.remove('image.png')
+    except:
+        bot.send_message(message.chat.id, 'В промте ошибка. Генерация не возможна')
+        return False
+   
 @bot.message_handler(commands=['ask'])
 def ask_gpt(message):
-    argus = message.text.split()
-    if len(argus) < 2:
-        bot.send_message(message.chat.id, "Нужно ввести запрос. Попробуй снова.")
-        return False
-    argus.pop(0)
-    txt = " ".join(argus)
-    completion = openai.ChatCompletion.create(
-  model="gpt-3.5-turbo",
+    try:
+        argus = message.text.split()
+        if len(argus) < 2:
+            bot.send_message(message.chat.id, "Нужно ввести запрос. Попробуй снова.")
+            return False
+        argus.pop(0)
+        txt = " ".join(argus)
+        mess = bot.send_message(message.chat.id, "🕐 Подождите несколько секунд. Ваше сообщение обрабатывается")
+        mess
+        completion = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
   messages=[
     {"role": "user", "content": txt}
   ]
 )
-    text2 = ("ChatGPT-3.5 - " + str(completion.choices[0].message.content))
-    logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался ChatGPT: ' + txt))
-    bot.send_message(message.chat.id, text2)
-
+        logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался ChatGPT: ' + txt))
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕒 Подождите несколько секунд. Ваше сообщение обрабатывается.")
+        sleep(0.5)
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕕 Подождите несколько секунд. Ваше сообщение обрабатывается..")
+        sleep(0.5)
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕘 Подождите несколько секунд. Ваше сообщение обрабатывается...")
+        sleep(0.5)
+        text = ''
+        argus = completion.choices[0].message.content.split()
+        if len(argus) > AIlimit:
+            bot.send_message(message.chat.id, str("ChatGPT-3.5 - " + completion.choices[0].message.content))
+            return False
+        
+        for i in range(len(argus)):
+            text = text + argus[i] + ' '
+            bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text=text)
+            sleep(Animspeed)
+        # logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался ChatGPT: ' + txt))
+    except:
+        # pass
+        bot.send_message(message.chat.id, 'ChatGPT времмено недоступен! Попробуйте позже.')
+#========================================================= 
+#Обработка команнд GigaChat
 @bot.message_handler(commands=['ask_gigachat'])
 def ask_giga_chat(message):
-    argus = message.text.split()
-    if len(argus) < 2:
-        bot.send_message(message.chat.id, "Нужно ввести запрос. Попробуй снова.")
-        return False
-    argus.pop(0)
-    txt = " ".join(argus)
-    with GigaChat(credentials=Gigachat_token, verify_ssl_certs=False) as giga:
-        response = giga.chat(txt)
-    text2 = str("GiGaChat - " + response.choices[0].message.content)
-    logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался GiGaChat: ' + txt))
-    bot.send_message(message.chat.id, text2)
+    try:
+        argus = message.text.split()
+        if len(argus) < 2:
+            bot.send_message(message.chat.id, "Нужно ввести запрос. Попробуй снова.")
+            return False
+        argus.pop(0)
+        txt = " ".join(argus)
+        mess = bot.send_message(message.chat.id, "🕐 Подождите несколько секунд. Ваше сообщение обрабатывается")
+        mess
+        with GigaChat(credentials=Gigachat_token, verify_ssl_certs=False) as giga:
+            response = giga.chat(txt)
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕒 Подождите несколько секунд. Ваше сообщение обрабатывается.")
+        sleep(0.5)
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕕 Подождите несколько секунд. Ваше сообщение обрабатывается..")
+        sleep(0.5)
+        bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕘 Подождите несколько секунд. Ваше сообщение обрабатывается...")
+        sleep(0.5)
+        text = ''
+        argus = response.choices[0].message.content.split()
+        if len(argus) > AIlimit:
+            bot.send_message(message.chat.id, str("ChatGPT-3.5 - " + response.choices[0].message.content))
+            return False
+        for i in range(len(argus)):
+            text = text + argus[i] + ' '
+            bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text=text)
+            sleep(Animspeed)
+        logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался GiGaChat: ' + txt))
+    except:
+        bot.send_message(message.chat.id, "GiGaChat времмено недоступен! Попробуйте позже.")
 
+#========================================================= 
+#Обработка команнд
+@bot.message_handler(commands=['weather'])
+def send_weather_person(message):
+    weather_data = requests.get(url).json()
+    logs_save(log_text=str('Выведенна погода пользователю: ' + str(message.from_user.username)))
+    temperature = round(weather_data['main']['temp'])
+    humidity = (weather_data['main']['humidity'])
+    weathers = (weather_data['weather'][0]['description'])
+    text = ("В Питере сейчас: " + str(weathers) + '\nТемпература: ' + str(temperature) + '°C' + '\nВлажность: ' + str(humidity) + '%')
+    bot.send_message(message.chat.id,text)   
+#----------------------------------------------------------
+@bot.message_handler(commands=['add'])
+def appending(message):
+    bot.send_message(message.from_user.id, "Отправь данные без нулей через пробелы в формате: Name Day Month. Пример: Виктор 1 5. Если хотите отменить запись введите: Отмена")
+    bot.register_next_step_handler(message,save_new)
+
+#==========================================================
+#admins commands
 @bot.message_handler(commands=['send_message'])
 def send_message(message):
     argus = message.text.split()
@@ -108,56 +217,35 @@ def send_message(message):
                     bot.send_message(message.from_user.id, "Успешно отправленно!")
                 else:
                     continue
-                
-@bot.message_handler(commands=['weather'])
-def send_weather_person(message):
-    weather_data = requests.get(url).json()
-    logs_save(log_text=str('Выведенна погода пользователю: ' + str(message.from_user.username)))
-    temperature = round(weather_data['main']['temp'])
-    humidity = (weather_data['main']['humidity'])
-    weathers = (weather_data['weather'][0]['description'])
-    text = ("В Питере сейчас: " + str(weathers) + '\nТемпература: ' + str(temperature) + '°C' + '\nВлажность: ' + str(humidity) + '%')
-    bot.send_message(message.chat.id,text)   
-    
-@bot.message_handler(commands=['add'])
-def appending(message):
-    bot.send_message(message.from_user.id, "Отправь данные без нулей через пробелы в формате: Name Nickname Day Month. Пример: Виктор @Test 1 5. Если хотите отменить запись введите: Отмена")
-    bot.register_next_step_handler(message,save_new)
-    
+#----------------------------------------------------------      
 @bot.message_handler(commands=['stats'])
 def get_stats(message):
-    if (message.from_user.id == admins[0]):
-        bot.send_message(message.from_user.id,"Stats: OK")
-
+    for i in range(len(admins)):
+                if str(message.from_user.id) == admins[i]:
+                    bot.send_message(message.from_user.id,"Stats: OK")
+#----------------------------------------------------------
 @bot.message_handler(commands=['logs'])
 def get_stats(message):
-    if (message.from_user.id == admins[0)):
-        with open('logs.txt', 'r+') as log:
-            bot.send_message(message.from_user.id,str(log.read()))
-        log.close
-        
+    for i in range(len(admins)):
+                if str(message.from_user.id) == admins[i]:
+                    with open('logs.txt', 'r+') as log:
+                        bot.send_message(message.from_user.id,str(log.read()))
+                    log.close
+#----------------------------------------------------------
 @bot.message_handler(commands=['logsclear'])
 def get_stats(message):
-    if (message.from_user.id == admins[0)):
-        with open('logs.txt', 'w+') as log:
-            log.write("[*] Logs clear! \n")
-            bot.send_message(message.from_user.id, "Логи очищенны!")
-        log.close
+    for i in range(len(admins)):
+                if str(message.from_user.id) == admins[i]:
+                    logs_save(log_text=str("[*] Logs clear! \n"))
+                    bot.send_message(message.from_user.id, "Логи очищенны!")
+#----------------------------------------------------------     
 #Тестовая функция для разработки
 #Для отключения закомментировать!
 @bot.message_handler(commands=['test'])
 def getmessage(message):    
-    if (message.from_user.id == 1746901164):
-        bot.send_message(message.from_user.id, message)
-
-#Тестовая функция для разработки
-#Для отключения закомментировать!
-@bot.message_handler(commands=['test'])
-def getmessage(message):    
-    if (message.from_user,id == admins[0]):
-        bot.send_message(message.from_user.id, "Test")
-        
-#=========================================================   
+    if (message.from_user,id == admins[1]):
+        bot.send_message(message.from_user.id, message)    
+#=========================================================
 #Отправка погоды 
 def send_weather():
     try:
@@ -181,12 +269,13 @@ def send_weather():
     except:
         e = sys.exc_info()[1]
         logs_save(log_text=str("[*] Error:", e.args[0]))
-    
+#==========================================================
+#Указание функций комманд
 def treager():
     while True:
         schedule.run_pending()
         sleep(1)
-            
+#----------------------------------------------------------  
 def check():
     try:
         NowDate = datetime.datetime.now()
@@ -210,15 +299,7 @@ def check():
     except:
         e = sys.exc_info()[1]
         logs_save(log_text=str("[*] Error:", e.args[0]))
-
-def send_message_cmd(istr=''):
-    if istr != 'exit':
-        bot.send_message(chatid, str(istr))
-        print("Успешно отправленно!")
-    else:
-        print("cancel!")
-        return False
-        
+#----------------------------------------------------------      
 def save_new(message):
     if message.text == "Отмена" or message.text == 'отмена':
         bot.send_message(message.from_user.id, "Отменяю")
@@ -228,19 +309,11 @@ def save_new(message):
         morph = pymorphy2.MorphAnalyzer()
         word_c = morph.parse(argus[0])[0]
         gent = word_c.inflect({'datv'})
-        save_text = str((gent.word).title() + "," + argus[1] + "," + argus[2] + "," + argus[3])
+        save_text = str((gent.word).title() + "," + "@" +message.from_user.username + "," + argus[1] + "," + argus[2])
         day_range = 0
         month_range = 0
+        
         for i in argus[1]:
-            if i == "@":
-                pass
-            else:
-                #Заменить текст на свой!
-                bot.send_message(message.from_user.id, "Такого NickName не существует. Попробуй снова.")
-                bot.send_message(message.from_user.id, "Отправь данные без нулей через пробелы в формате: Name Nickname Day Month. Пример: Виктор @Test 1 5")
-                bot.register_next_step_handler(message,save_new)
-                return False
-        for i in argus[2]:
             day_range += 1
             if i == "0":
                 #Заменить текст на свой!
@@ -249,7 +322,7 @@ def save_new(message):
                 bot.register_next_step_handler(message,save_new)
                 return False
         
-        for i in argus[3]:
+        for i in argus[2]:
             month_range += 1
             if i == "0":
                 #Заменить текст на свой!
@@ -257,7 +330,7 @@ def save_new(message):
                 bot.send_message(message.from_user.id, "Отправь данные без нулей через пробелы в формате: Name Nickname Day Month. Пример: Виктор @Test 1 5")
                 bot.register_next_step_handler(message,save_new)
                 return False
-        if day_range > 2 or day_range < 1 or month_range > 2 or day_range < 1 or int(argus[2]) > 31 or int(argus[3]) > 12:
+        if day_range > 2 or day_range < 1 or month_range > 2 or day_range < 1 or int(argus[1]) > 31 or int(argus[2]) > 12:
             #Заменить текст на свой!
             bot.send_message(message.from_user.id, "Такой даты не существует. Попробуй снова.")
             bot.send_message(message.from_user.id, "Отправь данные без нулей через пробелы в формате: Name Nickname Day Month. Пример: Виктор @Test 1 5")
@@ -265,57 +338,45 @@ def save_new(message):
             return False
         
         with open('NewData.txt', 'a') as f:
-            f.write(save_text+ '\n')
+            f.write(save_text + '\n')
         #Заменить текст на свой!
         bot.send_message(message.from_user.id, "Ладно-ладно, записал, отстань")
-        logs_save(log_text=str('Записан новый пользователь в базу данных:' + str(message.text)))
+        logs_save(log_text=str('Записан новый пользователь в базу данных:' + save_text))
         f.close()
     except:
-        #Заменить текст на свой!
+        # Заменить текст на свой!
         bot.send_message(message.from_user.id, "У вас что-то не правильно. Попробуйте снова.")
         bot.send_message(message.from_user.id, "Отправь данные без нулей через пробелы в формате: Name Nickname Day Month. Пример: Виктор @Test 1 5")
         bot.register_next_step_handler(message,save_new)
         return False
-    
+#==========================================================
+# Сохранение и вывод логов
 def logs_save(log_text=''):
-    def logs_save(log_text=''):
+    NowDate = datetime.datetime.now()
+    time = NowDate.replace(microsecond=0)
+    print(str(time) + " - " + log_text + '\n')
+    bot.send_message(admins[1], str(str(time) + " - " + log_text))
     with open('logs.txt', 'a') as log:
         log.write(str(time) + " - " + log_text + '\n')
     log.close
 
-def cmd():
-    while True:
-        instr = str(input(">>>"))
-        #Команнды для консоли
-        if instr == 'stop':
-            sys.exit(1)
-        if instr == 'send_message':
-            send_message_cmd(istr=str(input("Text:")))
-        if instr == 'send_gift':
-            check(input("Введите день: "),input("Введите месяц: "))
-        else:
-            print("Неизвестная комманда!")
-         
-#Установка таймеров и времени 
-#Поменять по своему желанию!
-schedule.every().day.at("08:00").do(send_weather)
-schedule.every().day.at("10:00").do(check)   
+#==========================================================
+#Установка таймеров
+schedule.every().day.at(Weather_time).do(send_weather)
+schedule.every().day.at(Gift_time).do(check)   
 
 #Установка и запуск потоков
 threading_treager = threading.Thread(target=treager)
-threading_cmd = threading.Thread(target=cmd)
-
 threading_treager.start()
-threading_cmd.start()
 
 # Ручное поздравленние
 # Раскоментировать стоку ниже, указать сегодняшний день и месяц и перезапутить скрипт
 # check(NowDay=15, NowMonth=11)
 
+#==========================================================
 #Запуск бота
 logs_save(log_text=str('[*] Bot start \n'))
 try:
     bot.polling(non_stop=True, interval=1)
 except:
-    print("Time out")
     logs_save(log_text="[*] Time out")
