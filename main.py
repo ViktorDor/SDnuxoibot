@@ -22,6 +22,7 @@
 #Некоторые модули нужно установить команнды смотреть в modls.txt
 from shlex import join
 from time import sleep 
+import time
 import telebot
 import pandas as pd
 import schedule
@@ -29,21 +30,25 @@ import datetime
 import threading
 from urllib import request 
 import requests 
-import sys
-import os
+import sys, os
 import pymorphy2
 from gigachat import GigaChat
 import openai
+from translate import Translator
+import click
 
-version = 'v2.5'
+version = 'v2.6'
 #OpenAi
-# openai.api_key = ""
-# Gigachat_token = ''
+openai.api_key = ""
+Gigachat_token = ''
 AIlimit = 50
 Animspeed = 0.01
+Text_limit = 200
+
+translator= Translator(from_lang="Russian",to_lang="English")
 
 #Указание сайта погоды (Open wheather)
-#Зайти на сайт https://api.openweathermap.org и следовать интрукциям
+#Зайти на сатй openwheather.org и следовать интрукциям
 url = ''
 
 #Бот конфиг 
@@ -53,7 +58,7 @@ token = '' #Поменяйте на token своего бота
 bot = telebot.TeleBot(token=token)
 
 #Указание админов
-#Первый админ главный!!!
+#Первый админ главный
 admins = []
 
 #Указание пути к DataFrame
@@ -61,6 +66,7 @@ data = pd.read_csv("Путь")
 
 #Указание переменных (Не менять!!!)
 NowDR = []
+start_time = datetime.datetime.now()
 NowDate = datetime.datetime.now()
 time = NowDate.replace(microsecond=0)
 
@@ -85,6 +91,7 @@ def generate_image(message):
             return False
         argus.pop(0)
         txt = " ".join(argus)
+        # txt = translator.translate(txt)
         mess = bot.send_message(message.chat.id, "🕐 Подождите несколько секунд. Ваше изображение обрабатывается...")
         mess
         completion = openai.Image.create(
@@ -99,7 +106,7 @@ def generate_image(message):
         bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕘 Подождите несколько секунд. Ваше изображение обрабатывается...")
         sleep(0.5)
         bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="✅Ваше изображение готово:")
-        logs_save(log_text=str(str("@" + message.from_user.username) + ' Сгенерировал изображение: ' + txt))
+        logs_save(log_text=str(str("[Info] @" + message.from_user.username) + ' Сгенерировал изображение: ' + txt))
         image_url = completion['data'][0]['url']
         file_name = 'image.png'
         request.urlretrieve(image_url, file_name)
@@ -107,8 +114,9 @@ def generate_image(message):
             bot.send_photo(message.chat.id, im)
             im.close()
         os.remove('image.png')
-    except:
+    except Exception as e:
         bot.send_message(message.chat.id, 'В промте ошибка. Генерация не возможна')
+        logs_save(log_text=str('[Error] ChatGPT generate. code' + str(e)))
         return False
    
 @bot.message_handler(commands=['ask'])
@@ -128,7 +136,7 @@ def ask_gpt(message):
     {"role": "user", "content": txt}
   ]
 )
-        logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался ChatGPT: ' + txt))
+        logs_save(log_text=str(str("[Info] @" + message.from_user.username) + ' Воспользовался ChatGPT: ' + txt))
         bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕒 Подождите несколько секунд. Ваше сообщение обрабатывается.")
         sleep(0.5)
         bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text="🕕 Подождите несколько секунд. Ваше сообщение обрабатывается..")
@@ -137,17 +145,19 @@ def ask_gpt(message):
         sleep(0.5)
         text = ''
         argus = completion.choices[0].message.content.split()
-        if len(argus) > AIlimit:
-            bot.send_message(message.chat.id, str("ChatGPT-3.5 - " + completion.choices[0].message.content))
+        if len(argus) > Text_limit:
+            txt_one = " ".join(argus[:Text_limit])
+            txt_two = " ".join(argus[Text_limit:])
+            bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text=str("ChatGPT3.5 - " + txt_one))
+            bot.send_message(message.chat.id, txt_two)
             return False
         
         for i in range(len(argus)):
             text = text + argus[i] + ' '
             bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text=text)
             sleep(Animspeed)
-        # logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался ChatGPT: ' + txt))
-    except:
-        # pass
+    except Exception as e:
+        logs_save(log_text=str('[Error] ChatGPT ask. code' + str(e)))
         bot.send_message(message.chat.id, 'ChatGPT времмено недоступен! Попробуйте позже.')
 #========================================================= 
 #Обработка команнд GigaChat
@@ -172,15 +182,20 @@ def ask_giga_chat(message):
         sleep(0.5)
         text = ''
         argus = response.choices[0].message.content.split()
-        if len(argus) > AIlimit:
-            bot.send_message(message.chat.id, str("ChatGPT-3.5 - " + response.choices[0].message.content))
+        if len(argus) > Text_limit:
+            txt_one = " ".join(argus[:Text_limit])
+            txt_two = " ".join(argus[Text_limit:])
+            bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text=str("GigaChat - " + txt_one))
+            bot.send_message(message.chat.id, txt_two)
             return False
+        
         for i in range(len(argus)):
             text = text + argus[i] + ' '
             bot.edit_message_text(chat_id=message.chat.id, message_id=mess.message_id, text=text)
             sleep(Animspeed)
-        logs_save(log_text=str(str("@" + message.from_user.username) + ' Воспользовался GiGaChat: ' + txt))
-    except:
+        logs_save(log_text=str(str("[Info] @" + message.from_user.username) + ' Воспользовался GiGaChat: ' + txt))
+    except Exception as e:
+        logs_save(log_text=str('[Error] GigaChat ask. code' + str(e)))
         bot.send_message(message.chat.id, "GiGaChat времмено недоступен! Попробуйте позже.")
 
 #========================================================= 
@@ -188,11 +203,11 @@ def ask_giga_chat(message):
 @bot.message_handler(commands=['weather'])
 def send_weather_person(message):
     weather_data = requests.get(url).json()
-    logs_save(log_text=str('Выведенна погода пользователю: ' + str(message.from_user.username)))
     temperature = round(weather_data['main']['temp'])
     humidity = (weather_data['main']['humidity'])
     weathers = (weather_data['weather'][0]['description'])
     text = ("В Питере сейчас: " + str(weathers) + '\nТемпература: ' + str(temperature) + '°C' + '\nВлажность: ' + str(humidity) + '%')
+    logs_save(log_text=str('[Info] Выведенна погода пользователю: ' + str(message.from_user.username)))
     bot.send_message(message.chat.id,text)   
 #----------------------------------------------------------
 @bot.message_handler(commands=['add'])
@@ -212,7 +227,7 @@ def send_message(message):
                 if str(message.from_user.id) == admins[i]:
                     argus.pop(0)
                     txt = " ".join(argus)
-                    logs_save(log_text=str('Отправленно сообщение от имени бота:') + txt)
+                    logs_save(log_text=str('[Warn] Отправленно сообщение от имени бота:') + txt)
                     bot.send_message(chatid, txt)
                     bot.send_message(message.from_user.id, "Успешно отправленно!")
                 else:
@@ -222,7 +237,9 @@ def send_message(message):
 def get_stats(message):
     for i in range(len(admins)):
                 if str(message.from_user.id) == admins[i]:
-                    bot.send_message(message.from_user.id,"Stats: OK")
+                    current_time = datetime.datetime.now()
+                    time_work = round(current_time - start_time, 3)
+                    bot.send_message(message.from_user.id,"Stats: OK \n Work Time: " + str(time_work))
 #----------------------------------------------------------
 @bot.message_handler(commands=['logs'])
 def get_stats(message):
@@ -230,14 +247,17 @@ def get_stats(message):
                 if str(message.from_user.id) == admins[i]:
                     with open('logs.txt', 'r+') as log:
                         bot.send_message(message.from_user.id,str(log.read()))
+                    logs_save(logs_text='[Info] Выведены логи пользователю: ' + message.from_user.nickname)
                     log.close
 #----------------------------------------------------------
 @bot.message_handler(commands=['logsclear'])
 def get_stats(message):
     for i in range(len(admins)):
-                if str(message.from_user.id) == admins[i]:
-                    logs_save(log_text=str("[*] Logs clear! \n"))
-                    bot.send_message(message.from_user.id, "Логи очищенны!")
+        if str(message.from_user.id) == admins[i]:
+            with open('logs.txt', 'w+') as log:
+                log.write("\n")
+            logs_save(log_text=str("[Warn] Logs clear! \n"))
+            bot.send_message(message.from_user.id, "Логи очищенны!")
 #----------------------------------------------------------     
 #Тестовая функция для разработки
 #Для отключения закомментировать!
@@ -250,7 +270,7 @@ def getmessage(message):
 def send_weather():
     try:
         #Запись в логи
-        logs_save(str(str(NowDate) + ' Выведенна погода'))
+        logs_save(str(str(NowDate) + '[Info] Выведенна погода'))
         
         #Получение погоды с сайта OpenWeather
         try:
@@ -258,17 +278,16 @@ def send_weather():
             temperature = round(weather_data['main']['temp'])
             humidity = (weather_data['main']['humidity'])
             weathers = (weather_data['weather'][0]['description'])
-        except:
-            print("Weather error!")
+        except Exception as e:
+            logs_save(log_text=str('[Error] Weather input. code' + str(e)))
             return False
         #Поменяйте текст под свой!
         text_w = ("Доброе утро, Петербуржцы!" + "\nВ городе сейчас: " + str(weathers) + '\nТемпература: ' + str(temperature) + '°C' + '\nВлажность: ' + str(humidity) + '%')
         
         #Отправка в группу
         bot.send_message(chatid,text_w)
-    except:
-        e = sys.exc_info()[1]
-        logs_save(log_text=str("[*] Error:", e.args[0]))
+    except Exception as e:
+        logs_save(log_text=str("[Error] - Send weather. code" + str(e)))
 #==========================================================
 #Указание функций комманд
 def treager():
@@ -286,19 +305,18 @@ def check():
             NowDR = data.index[(data['dday'] == NowDay) & (data["dmon"] == NowMonth)].tolist()
             
         if int(data[(data['dday'] == NowDay) & (data["dmon"] == NowMonth)].shape[0]) <= 0:
-            logs_save(log_text='Имменниников нету!')
+            logs_save(log_text='[Info] Имменниников нету!')
             return False
         ind = 0
         for b in range(int(len(NowDR))):
             #Заменить текст на свой!
             text = "Доброго дня! Сегодня день рождения у " + data.loc[NowDR[ind],"nickname"] + ", пожелаем " + data.loc[NowDR[ind],"name"] + " удачи, счастья, отличного настроения и всего наилучшего!\n"
             bot.send_message(chatid,"–=–=–=–=–=–=–=–=–=–=–=–=-=–=\n" + text + "–=–=–=–=–=–=–=–=–=–=–=–=-=–=")
-            logs_save(str('Отправленно поздравление пользователю ' + data.loc[NowDR[ind],"nickname"]))
+            logs_save(str('[Info] Отправленно поздравление пользователю ' + data.loc[NowDR[ind],"nickname"]))
             ind += 1
             NowDR = []
-    except:
-        e = sys.exc_info()[1]
-        logs_save(log_text=str("[*] Error:", e.args[0]))
+    except Exception as e:
+        logs_save(log_text=str("[Error] Gift message. code:", e))
 #----------------------------------------------------------      
 def save_new(message):
     if message.text == "Отмена" or message.text == 'отмена':
@@ -341,20 +359,30 @@ def save_new(message):
             f.write(save_text + '\n')
         #Заменить текст на свой!
         bot.send_message(message.from_user.id, "Ладно-ладно, записал, отстань")
-        logs_save(log_text=str('Записан новый пользователь в базу данных:' + save_text))
+        logs_save(log_text=str('[Info] Записан новый пользователь в базу данных:' + save_text))
         f.close()
-    except:
+    except Exception as e:
         # Заменить текст на свой!
         bot.send_message(message.from_user.id, "У вас что-то не правильно. Попробуйте снова.")
         bot.send_message(message.from_user.id, "Отправь данные без нулей через пробелы в формате: Name Nickname Day Month. Пример: Виктор @Test 1 5")
         bot.register_next_step_handler(message,save_new)
+        logs_save(log_text=str('[Error] Add. code:' + e))
         return False
 #==========================================================
 # Сохранение и вывод логов
 def logs_save(log_text=''):
     NowDate = datetime.datetime.now()
     time = NowDate.replace(microsecond=0)
-    print(str(time) + " - " + log_text + '\n')
+    argus = log_text.split()
+    if argus[0] == '[Error]':
+        click.echo(click.style(f"{log_text}", fg="red"))
+    else:
+        if argus[0] == '[Warn]':
+            click.echo(click.style(f"{log_text}", fg="yellow"))
+        else:
+            click.echo(click.style(f"{log_text}", fg="green"))
+            
+    # print(str(time) + " - " + log_text + '\n')
     bot.send_message(admins[1], str(str(time) + " - " + log_text))
     with open('logs.txt', 'a') as log:
         log.write(str(time) + " - " + log_text + '\n')
@@ -375,8 +403,8 @@ threading_treager.start()
 
 #==========================================================
 #Запуск бота
-logs_save(log_text=str('[*] Bot start \n'))
+logs_save(log_text=str('[Info] Bot start'))
 try:
     bot.polling(non_stop=True, interval=1)
-except:
-    logs_save(log_text="[*] Time out")
+except Exception as e:
+    logs_save(log_text="[Error] Time out. code: " + str(e))
